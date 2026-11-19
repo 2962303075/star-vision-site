@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>星芒视界 · 站点配置台</title>
+<style>
+  :root{
+    --bg:#080b18; --panel:#0f1428; --line:#1e2744; --txt:#e8ecff;
+    --dim:#8b96bb; --acc:#5b8cff; --acc2:#22d3ee; --ok:#22c55e; --err:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#16204a 0%,#080b18 55%) fixed;
+       color:var(--txt);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       padding:28px 16px 60px}
+  .wrap{max-width:820px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px;margin-bottom:16px}
+  .card h2{font-size:14px;margin:0 0 14px;color:var(--acc2);font-weight:600;letter-spacing:.5px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .f{flex:1 1 220px;min-width:0}
+  label{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
+  input[type=text],input[type=password],textarea{
+    width:100%;background:#0a0f20;border:1px solid var(--line);color:var(--txt);
+    border-radius:9px;padding:9px 11px;font:inherit;outline:none}
+  input:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(91,140,255,.12)}
+  textarea{resize:vertical;min-height:64px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt)}
+  button{cursor:pointer;border:0;border-radius:9px;padding:10px 18px;font:inherit;font-weight:600}
+  .primary{background:linear-gradient(135deg,var(--acc),#7c5bff);color:#fff}
+  .ghost{background:#141b33;color:var(--txt);border:1px solid var(--line)}
+  button:disabled{opacity:.5;cursor:default}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .msg{font-size:13px;margin-left:4px}
+  .msg.ok{color:var(--ok)} .msg.err{color:var(--err)}
+  .tip{color:var(--dim);font-size:12px;margin-top:8px}
+  .dl{border:1px dashed var(--line);border-radius:11px;padding:14px;margin-bottom:12px}
+  .dl .tag{display:inline-block;font-size:11px;color:var(--acc2);border:1px solid var(--line);
+           border-radius:6px;padding:1px 7px;margin-bottom:10px}
+  code{background:#0a0f20;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>星芒视界 · 站点配置台</h1>
+  <div class="sub">改完点保存，官网刷新即生效，不用重新发布。保存需要管理令牌。</div>
+
+  <div class="card">
+    <h2>访问令牌</h2>
+    <div class="row">
+      <div class="f">
+        <label>X-Admin-Token</label>
+        <input type="password" id="token" placeholder="粘贴管理令牌" autocomplete="off" />
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="ghost" id="loadBtn">读取当前配置</button>
+      </div>
+    </div>
+    <div class="tip">令牌只存在你本机浏览器里（localStorage），不会写进这个页面。</div>
+  </div>
+
+  <div class="card">
+    <h2>应用信息</h2>
+    <div class="row">
+      <div class="f"><label>应用名称</label><input type="text" id="appName" /></div>
+      <div class="f"><label>版本号</label><input type="text" id="appVersion" placeholder="3.2.0" /></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>更新日期</label><input type="text" id="appUpdated" placeholder="2026-11-19" /></div>
+      <div class="f"><label>最低 Android</label><input type="text" id="minAndroid" /></div>
+      <div class="f"><label>最低 iOS</label><input type="text" id="minIos" /></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>一句话标语</label><input type="text" id="slogan" /></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>顶部公告</h2>
+    <div class="chk" style="margin-bottom:10px">
+      <input type="checkbox" id="annOn" /><label for="annOn" style="margin:0">启用公告条</label>
+    </div>
+    <textarea id="annText" placeholder="留空则不显示"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>下载地址</h2>
+    <div id="dls"></div>
+    <div class="tip">地址必须是完整 URL（http/https 开头），填 <code>#</code> 表示暂不开放，按钮会变成不可点。</div>
+  </div>
+
+  <div class="bar">
+    <button class="primary" id="saveBtn">保存并发布</button>
+    <button class="ghost" id="previewBtn">打开官网</button>
+    <span class="msg" id="msg"></span>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'https://star-vision-api.app.workbuddy.host';
+const API_KEY  = 'WRTB62G4C2';
+const PLATFORMS = [
+  { platform: 'android', label: 'Android 版' },
+  { platform: 'ios',     label: 'iOS 版' },
+  { platform: 'tv',      label: 'TV / 盒子版' }
+];
+let current = null;
+
+const $ = (id) => document.getElementById(id);
+const msg = (t, cls) => { const m = $('msg'); m.textContent = t; m.className = 'msg ' + (cls || ''); };
+
+function apiUrl(path) {
+  return API_BASE.replace(/\/$/, '') + path + '?sharecode=' + encodeURIComponent(API_KEY);
+}
+
+function renderDownloads(list) {
+  const box = $('dls');
+  box.innerHTML = '';
+  PLATFORMS.forEach((p) => {
+    const d = (list || []).find((x) => x.platform === p.platform) || { platform: p.platform, label: p.label, url: '#', version: '', size: '', note: '', badge: '' };
+    const el = document.createElement('div');
+    el.className = 'dl';
+    el.innerHTML =
+      '<div class="tag">' + p.platform.toUpperCase() + '</div>' +
+      '<div class="row"><div class="f"><label>按钮文字</label><input type="text" data-k="label" value="' + esc(d.label || '') + '"></div>' +
+      '<div class="f"><label>角标（可空）</label><input type="text" data-k="badge" value="' + esc(d.badge || '') + '"></div></div>' +
+      '<div class="row"><div class="f" style="flex:2 1 320px"><label>下载地址</label><input type="text" data-k="url" value="' + esc(d.url || '') + '"></div></div>' +
+      '<div class="row"><div class="f"><label>版本</label><input type="text" data-k="version" value="' + esc(d.version || '') + '"></div>' +
+      '<div class="f"><label>大小</label><input type="text" data-k="size" value="' + esc(d.size || '') + '"></div>' +
+      '<div class="f"><label>说明</label><input type="text" data-k="note" value="' + esc(d.note || '') + '"></div></div>';
+    el.dataset.platform = p.platform;
+    box.appendChild(el);
+  });
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+function fill(data) {
+  current = data;
+  $('appName').value = data.app.name || '';
+  $('appVersion').value = data.app.version || '';
+  $('appUpdated').value = data.app.updated || '';
+  $('minAndroid').value = data.app.minAndroid || '';
+  $('minIos').value = data.app.minIos || '';
+  $('slogan').value = data.app.slogan || '';
+  $('annOn').checked = !!(data.announcement && data.announcement.enabled);
+  $('annText').value = (data.announcement && data.announcement.text) || '';
+  renderDownloads(data.downloads);
+}
+
+async function load() {
+  const t = $('token').value.trim();
+  if (t) localStorage.setItem('sv_token', t);
+  try {
+    const r = await fetch(apiUrl('/api/site'), { cache: 'no-store' });
+    const j = await r.json();
+    if (!j || !j.data) throw new Error('返回格式异常');
+    fill(j.data);
+    msg('已读取当前配置', 'ok');
+  } catch (e) {
+    msg('读取失败：' + e.message, 'err');
+  }
+}
+
+function collect() {
+  const d = JSON.parse(JSON.stringify(current || {}));
+  d.app = d.app || {};
+  d.app.name = $('appName').value.trim();
+  d.app.version = $('appVersion').value.trim();
+  d.app.updated = $('appUpdated').value.trim();
+  d.app.minAndroid = $('minAndroid').value.trim();
+  d.app.minIos = $('minIos').value.trim();
+  d.app.slogan = $('slogan').value.trim();
+  d.announcement = { enabled: $('annOn').checked, text: $('annText').value.trim() };
+  const old = d.downloads || [];
+  d.downloads = Array.prototype.map.call($('dls').children, (el) => {
+    const o = { platform: el.dataset.platform };
+    el.querySelectorAll('[data-k]').forEach((i) => { o[i.dataset.k] = i.value.trim(); });
+    const prev = old.find((x) => x.platform === o.platform) || {};
+    if (!o.icon && prev.icon) o.icon = prev.icon;
+    return o;
+  });
+  return d;
+}
+
+async function save() {
+  const t = $('token').value.trim();
+  if (!t) { msg('请先填管理令牌', 'err'); return; }
+  $('saveBtn').disabled = true;
+  msg('保存中…');
+  try {
+    const body = collect();
+    const r = await fetch(apiUrl('/api/admin/site'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Token': t },
+      body: JSON.stringify(body)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.code === 0) { msg('已保存，官网刷新即生效', 'ok'); }
+    else { msg('保存失败：' + (j.msg || j.message || ('HTTP ' + r.status)), 'err'); }
+  } catch (e) {
+    msg('保存失败：' + e.message, 'err');
+  } finally {
+    $('saveBtn').disabled = false;
+  }
+}
+
+$('loadBtn').onclick = load;
+$('saveBtn').onclick = save;
+$('previewBtn').onclick = () => window.open('https://xm.233ys.cn/', '_blank');
+
+const saved = localStorage.getItem('sv_token');
+if (saved) $('token').value = saved;
+load();
+</script>
+</body>
+</html>
